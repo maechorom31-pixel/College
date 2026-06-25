@@ -17,10 +17,14 @@
   let entity = "dept";          // dept | college
   let viewMode = "cards";       // cards | table
   let sortKey = "employ";
+  // 모바일에서는 필터를 접은 상태로 시작(결과가 아래로 밀리지 않도록)
+  let filtersOpen = !(typeof window.matchMedia === "function" && window.matchMedia("(max-width:900px)").matches);
 
   /* ---------- 장바구니(비교함) ---------- */
   const CART = loadCart();
-  function loadCart() { try { return new Set(JSON.parse(localStorage.getItem("cart") || "[]")); } catch (e) { return new Set(); } }
+  function loadCart() { // 학과(d:)만 비교 대상 — 과거에 담긴 대학(c:) 항목은 정리
+    try { return new Set(JSON.parse(localStorage.getItem("cart") || "[]").filter(k => typeof k === "string" && k[0] === "d")); }
+    catch (e) { return new Set(); } }
   function saveCart() { localStorage.setItem("cart", JSON.stringify([...CART])); }
   function toggleCart(key) { CART.has(key) ? CART.delete(key) : CART.add(key); saveCart(); updateCartBar(); }
   function updateCartBar() {
@@ -171,7 +175,11 @@
     const cat3Opts = (F.cat1 && F.cat2) ? `<option value="">소분류 전체</option>` +
       (m.cats[F.cat1][F.cat2] || []).map(c => `<option ${F.cat3 === c ? "selected" : ""}>${c}</option>`).join("") : "";
 
+    const activeCount = F.regions.size + F.sidos.size + (F.cat1 ? 1 : 0) + (F.cat2 ? 1 : 0) + (F.cat3 ? 1 : 0) +
+      (F.employMin ? 1 : 0) + (F.tuitionMax ? 1 : 0) + (F.compMax ? 1 : 0) + (F.keyword ? 1 : 0);
+    $("#filters").classList.toggle("collapsed", !filtersOpen);
     $("#filters").innerHTML = `
+      <button class="f-toggle" id="fToggle">🔧 필터 ${filtersOpen ? "접기 ▲" : "펼치기 ▼"}${activeCount ? ` · ${activeCount}개 적용중` : ""}</button>
       <h2>필터 <button class="reset" id="resetF">초기화</button></h2>
       <div class="fgroup"><label>권역</label><div class="chips" id="cRegions">${regionChips}</div></div>
       <div class="fgroup"><label>시·도</label><div class="chips" id="cSidos">${sidoChips || '<span class="muted" style="font-size:12px">권역을 먼저 선택</span>'}</div></div>
@@ -199,16 +207,19 @@
     $("#cat1").onchange = e => { F.cat1 = e.target.value; F.cat2 = ""; F.cat3 = ""; renderFilters(); renderResults(); };
     if ($("#cat2")) $("#cat2").onchange = e => { F.cat2 = e.target.value; F.cat3 = ""; renderFilters(); renderResults(); };
     if ($("#cat3")) $("#cat3").onchange = e => { F.cat3 = e.target.value; renderResults(); };
-    bindRange("employMin"); bindRange("tuitionMax"); bindRange("compMax");
+    bindRange("employMin", v => v ? v + "% ↑" : "전체");
+    bindRange("tuitionMax", v => v ? "≤ " + (v / 1000).toFixed(0) + "백만" : "전체");
+    bindRange("compMax", v => v ? "≤ " + v + ":1" : "전체");
     $("#kw").oninput = e => { F.keyword = e.target.value.trim(); if (F.keyword) entity = "dept"; renderResults(); };
     $("#resetF").onclick = () => { Object.assign(F, newFilters()); $("#globalSearch").value = ""; renderFilters(); renderResults(); };
+    $("#fToggle").onclick = () => { filtersOpen = !filtersOpen; renderFilters(); };
   }
 
-  function bindRange(id) {
+  function bindRange(id, fmtLabel) {
     const el = $("#" + id); if (!el) return;
-    el.oninput = e => { F[id] = +e.target.value; const v = e.target.parentNode.querySelector(".range-val");
-      // 라벨 즉시 갱신 위해 전체 재렌더(가벼움)
-      renderFilters(); renderResults(); };
+    const lab = el.parentNode.querySelector(".range-val");
+    // 패널 전체를 다시 그리지 않고 라벨·결과만 갱신해야 슬라이더 포커스/드래그가 유지됨
+    el.oninput = e => { F[id] = +e.target.value; if (lab) lab.textContent = fmtLabel(F[id]); renderResults(); };
   }
   function toggle(set, v) { set.has(v) ? set.delete(v) : set.add(v); }
 
