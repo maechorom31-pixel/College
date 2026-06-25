@@ -253,12 +253,14 @@
     const list = isDept ? sortDepts(filteredDepts()) : sortColleges(filteredColleges());
     $("#resultsHead").innerHTML = `
       <div class="results-head">
-        <div class="count"><b>${list.length.toLocaleString()}</b> ${isDept ? "개 학과" : "개 대학"}</div>
-        <div class="toolbar">
+        <div class="rh-left">
           <span class="seg ent">
-            <button data-ent="dept" class="${isDept ? "on" : ""}">학과</button>
-            <button data-ent="college" class="${!isDept ? "on" : ""}">대학</button>
+            <button data-ent="dept" class="${isDept ? "on" : ""}">🎓 학과</button>
+            <button data-ent="college" class="${!isDept ? "on" : ""}">🏫 대학</button>
           </span>
+          <div class="count"><b>${list.length.toLocaleString()}</b> ${isDept ? "개 학과" : "개 대학"}</div>
+        </div>
+        <div class="toolbar">
           <select id="sortSel">${sortOptions(isDept)}</select>
           <span class="seg">
             <button data-vm="cards" class="${viewMode === "cards" ? "on" : ""}">카드</button>
