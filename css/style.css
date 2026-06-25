@@ -197,14 +197,24 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 .cmp .rm{border:none;background:none;color:#c0392b;font-size:12px;margin-top:6px}
 .cmp-x{font-size:11px;color:#aeb4c2}
 
-/* 인쇄(PDF) — 비교표만 깔끔하게 */
+/* 인쇄(PDF) — 항목이 많아도 페이지를 넘어가도록 학과별 카드로 출력 */
+.print-cards{display:none}
 @media print{
-  .site-header,.site-footer,.cart-bar,.toolbar,.hero p,.results-head .count{display:none !important}
+  .site-header,.site-footer,.cart-bar,.toolbar,.hero,.results-head,#cmpExport{display:none !important}
   body{background:#fff}
-  .hero h1{font-size:18px}
-  .cmp th,.cmp td{font-size:11px;padding:7px 9px}
-  .cmp .rm{display:none}
-  .best{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .print-cards{display:block}
+  .print-title{font-size:16px;margin:0 0 12px}
+  .pcards-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pcard{border:1px solid #b9c0d0;border-radius:8px;padding:10px 12px;
+    break-inside:avoid;page-break-inside:avoid}
+  .pcard h4{margin:0 0 7px;font-size:13px;border-bottom:1px solid #e6e9f0;padding-bottom:5px}
+  .pcard h4 small{display:block;font-weight:400;color:#666;font-size:11px;margin-top:2px}
+  .pcard dl{margin:0}
+  .pcard dl>div{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:11px;border-bottom:1px dotted #eceef3}
+  .pcard dt{color:#6b7385}
+  .pcard dd{margin:0;font-weight:600;text-align:right}
+  .pcard dd.best{color:#2f9e44;font-weight:800}
+  .best,.pcard dd.best{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
 /* Responsive */

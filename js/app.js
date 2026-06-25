@@ -475,6 +475,23 @@
       <p class="cmp-x" style="margin-top:12px">초록색은 항목 중 가장 우수한 값입니다 · 경쟁률·등급은 낮을수록 합격 가능성이 높습니다. 이름을 누르면 상세가 열립니다.</p>`;
   }
 
+  // 인쇄(PDF)용 — 항목이 많아도 페이지를 넘어가지 않도록 학과별 카드로 출력
+  function comparePrintCards(items) {
+    const best = {};
+    COMPARE_ROWS.forEach((r, ri) => {
+      if (!r.dir) return;
+      const vals = items.map(r.num).filter(v => v != null);
+      if (vals.length > 1) best[ri] = r.dir === "high" ? Math.max(...vals) : Math.min(...vals);
+    });
+    return items.map(i => `<div class="pcard">
+      <h4>${i.title} <small>${i.college} · ${i.sido}</small></h4>
+      <dl>${COMPARE_ROWS.map((r, ri) => {
+        const isBest = r.dir && best[ri] != null && r.num(i) === best[ri];
+        return `<div><dt>${r.label}</dt><dd class="${isBest ? "best" : ""}">${r.get(i)}</dd></div>`;
+      }).join("")}</dl>
+    </div>`).join("");
+  }
+
   function renderCompare() {
     const items = [...CART].map(cartItem).filter(Boolean);
     if (!items.length) {
@@ -498,7 +515,11 @@
           <button class="cart-clear" id="cmpClear" style="color:#c0392b">전체 비우기</button>
         </div>
       </div>
-      <div id="cmpExport">${compareTableHtml(items)}</div>`;
+      <div id="cmpExport">${compareTableHtml(items)}</div>
+      <div class="print-cards">
+        <h2 class="print-title">전문대 학과 비교 (${items.length}개)</h2>
+        <div class="pcards-grid">${comparePrintCards(items)}</div>
+      </div>`;
     view.querySelectorAll("[data-rm]").forEach(btn => btn.onclick = () => { toggleCart(btn.dataset.rm); renderCompare(); });
     view.querySelectorAll("[data-open]").forEach(el => { el.style.cursor = "pointer";
       el.onclick = () => { const k = el.dataset.open; k[0] === "d" ? openDept(+k.slice(2)) : openCollege(k.slice(2)); }; });
