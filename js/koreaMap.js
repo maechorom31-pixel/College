@@ -60,6 +60,15 @@
       tc.textContent = cnt;
       g.appendChild(tc);
 
+      // 작은 광역시도 누를 수 있도록 라벨 위치에 큰 투명 클릭 영역 추가
+      const hit = document.createElementNS(NS, "rect");
+      hit.setAttribute("x", lx - 26); hit.setAttribute("y", ly - 12);
+      hit.setAttribute("width", 52); hit.setAttribute("height", 30);
+      hit.setAttribute("fill", "transparent");
+      hit.setAttribute("pointer-events", "all");
+      hit.style.cursor = "pointer";
+      g.appendChild(hit);
+
       const fire = () => onSidoClick(p.name, p.region);
       g.addEventListener("click", fire);
       g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fire(); } });

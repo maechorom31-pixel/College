@@ -24,7 +24,10 @@
   function saveCart() { localStorage.setItem("cart", JSON.stringify([...CART])); }
   function toggleCart(key) { CART.has(key) ? CART.delete(key) : CART.add(key); saveCart(); updateCartBar(); }
   function updateCartBar() {
-    const bar = $("#cartBar"); if (!bar) return;
+    const bar = $("#cartBar");
+    const nav = $("#navCount");
+    if (nav) { nav.textContent = CART.size; nav.classList.toggle("zero", CART.size === 0); }
+    if (!bar) return;
     $("#cartCount").textContent = CART.size;
     bar.classList.toggle("hidden", CART.size === 0);
   }
@@ -70,8 +73,8 @@
       if (!location.hash.startsWith("#/browse")) location.hash = "#/browse";
       else renderResults();
     });
-    $("#cartOpen").addEventListener("click", openCompare);
-    $("#cartClear").addEventListener("click", () => { CART.clear(); saveCart(); updateCartBar(); if (location.hash.startsWith("#/browse")) renderResults(); });
+    $("#cartOpen").addEventListener("click", () => location.hash = "#/compare");
+    $("#cartClear").addEventListener("click", () => { CART.clear(); saveCart(); updateCartBar(); if (location.hash.startsWith("#/browse")) renderResults(); else if (location.hash.startsWith("#/compare")) renderCompare(); });
     updateCartBar();
     window.addEventListener("hashchange", route);
     route();
@@ -80,6 +83,7 @@
   function route() {
     const h = location.hash || "#/";
     if (h.startsWith("#/browse")) renderBrowse();
+    else if (h.startsWith("#/compare")) renderCompare();
     else renderHome();
     window.scrollTo(0, 0);
   }
@@ -196,7 +200,7 @@
     if ($("#cat2")) $("#cat2").onchange = e => { F.cat2 = e.target.value; F.cat3 = ""; renderFilters(); renderResults(); };
     if ($("#cat3")) $("#cat3").onchange = e => { F.cat3 = e.target.value; renderResults(); };
     bindRange("employMin"); bindRange("tuitionMax"); bindRange("compMax");
-    $("#kw").oninput = e => { F.keyword = e.target.value.trim(); renderResults(); };
+    $("#kw").oninput = e => { F.keyword = e.target.value.trim(); if (F.keyword) entity = "dept"; renderResults(); };
     $("#resetF").onclick = () => { Object.assign(F, newFilters()); $("#globalSearch").value = ""; renderFilters(); renderResults(); };
   }
 
@@ -251,7 +255,7 @@
       <div class="results-head">
         <div class="count"><b>${list.length.toLocaleString()}</b> ${isDept ? "개 학과" : "개 대학"}</div>
         <div class="toolbar">
-          <span class="seg">
+          <span class="seg ent">
             <button data-ent="dept" class="${isDept ? "on" : ""}">학과</button>
             <button data-ent="college" class="${!isDept ? "on" : ""}">대학</button>
           </span>
@@ -439,10 +443,8 @@
     return bg;
   }
 
-  /* ---------- 비교함 보기 ---------- */
-  function openCompare() {
-    const items = [...CART].map(cartItem).filter(Boolean);
-    if (!items.length) return;
+  /* ---------- 비교함 전용 페이지 ---------- */
+  function compareTableHtml(items) {
     const rows = [
       { label: "유형", get: i => i.type },
       { label: "대학", get: i => i.college },
@@ -456,7 +458,7 @@
       { label: "전공심화", get: i => i.deepen === "O" ? "개설" : (i.type === "학과" ? "정보없음" : "-") },
     ];
     const head = `<tr><th class="rowh">항목</th>` + items.map(i =>
-      `<th><div class="cname">${i.title}</div><div class="csub">${i.type}</div>
+      `<th><div class="cname" data-open="${escAttr(i.key)}">${i.title}</div><div class="csub">${i.college}</div>
         <button class="rm" data-rm="${escAttr(i.key)}">✕ 제거</button></th>`).join("") + `</tr>`;
     const body = rows.map(r => {
       let best = null;
@@ -470,14 +472,36 @@
       }).join("");
       return `<tr><td class="rowh">${r.label}</td>${cells}</tr>`;
     }).join("");
-    const html = `<div class="cmp-wrap"><table class="cmp"><thead>${head}</thead><tbody>${body}</tbody></table></div>
-      <p class="cmp-x" style="margin-top:12px">초록색은 항목 중 가장 우수한 값입니다 · 경쟁률·등급은 낮을수록 합격 가능성이 높습니다.</p>`;
-    const bg = showModal("비교함", `${items.length}개 항목 비교`, html);
-    bg.querySelectorAll("[data-rm]").forEach(btn => btn.onclick = () => {
-      toggleCart(btn.dataset.rm); bg._close();
-      if (CART.size) openCompare();
-      if (location.hash.startsWith("#/browse")) renderResults();
-    });
+    return `<div class="cmp-wrap"><table class="cmp"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="cmp-x" style="margin-top:12px">초록색은 항목 중 가장 우수한 값입니다 · 경쟁률·등급은 낮을수록 합격 가능성이 높습니다. 이름을 누르면 상세가 열립니다.</p>`;
+  }
+
+  function renderCompare() {
+    const items = [...CART].map(cartItem).filter(Boolean);
+    if (!items.length) {
+      view.innerHTML = `<div class="empty">
+        🛒 비교함이 비어 있습니다.<br><br>
+        학과·대학 카드 오른쪽 위의 <b style="color:var(--brand)">＋</b> 버튼을 눌러 담으면<br>여기서 나란히 비교할 수 있어요.<br><br>
+        <a class="chip on" href="#/browse" style="padding:8px 16px">탐색하러 가기</a></div>`;
+      return;
+    }
+    view.innerHTML = `
+      <div class="hero" style="padding:24px 0 6px;text-align:left">
+        <h1 style="font-size:24px">🛒 내 비교함</h1>
+        <p>담아둔 학과·대학 <b>${items.length}개</b>를 나란히 비교합니다.</p>
+      </div>
+      <div class="results-head">
+        <div class="count"><b>${items.length}</b> 개 담음</div>
+        <div class="toolbar">
+          <a class="chip" href="#/browse">＋ 더 담으러 가기</a>
+          <button class="cart-clear" id="cmpClear" style="color:#c0392b">전체 비우기</button>
+        </div>
+      </div>
+      ${compareTableHtml(items)}`;
+    view.querySelectorAll("[data-rm]").forEach(btn => btn.onclick = () => { toggleCart(btn.dataset.rm); renderCompare(); });
+    view.querySelectorAll("[data-open]").forEach(el => { el.style.cursor = "pointer";
+      el.onclick = () => { const k = el.dataset.open; k[0] === "d" ? openDept(+k.slice(2)) : openCollege(k.slice(2)); }; });
+    const cc = $("#cmpClear"); if (cc) cc.onclick = () => { CART.clear(); saveCart(); updateCartBar(); renderCompare(); };
   }
 
   /* ---------- 유틸 ---------- */
