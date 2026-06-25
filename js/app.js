@@ -36,14 +36,14 @@
       const d = DATA.departments.find(x => x.id === +key.slice(2)); if (!d) return null;
       const c = DATA.byName[d.college];
       return { key, type: "학과", title: d.unit, college: d.college, region: d.region, sido: d.sido,
-        cat: [d.cat1, d.cat2, d.cat3].filter(Boolean).join(" › "),
+        cat: [d.cat1, d.cat2, d.cat3].filter(Boolean).join(" › "), track: d.track26 || d.track25,
         comp: d.comp26 ?? d.comp25, avg: d.avg26 ?? d.avg25, employ: d.employ,
         fill: c ? c.fillRate["2025"] : null, tuition: c ? c.tuition["평균"] : null,
         level: d.level, deepen: d.deepen };
     }
     const c = DATA.byName[key.slice(2)]; if (!c) return null;
     return { key, type: "대학", title: c.name, college: c.name, region: c.region, sido: c.sido,
-      cat: Object.keys(c.cats).join(", "), comp: null, avg: null, employ: c.employRate["2024"],
+      cat: Object.keys(c.cats).join(", "), track: null, comp: null, avg: null, employ: c.employRate["2024"],
       fill: c.fillRate["2025"], tuition: c.tuition["평균"], level: null, deepen: null };
   }
 
@@ -328,15 +328,13 @@
     }).join("") + `</div>` + (list.length > 300 ? `<p class="muted" style="text-align:center;margin-top:14px">상위 300개만 표시됩니다. 필터로 좁혀 보세요.</p>` : "");
   }
   function collegeCards(list) {
-    return `<div class="cards">` + list.map(c => { const ck = "c:" + c.name; return `
+    return `<div class="cards">` + list.map(c => `
       <div class="card" data-college="${escAttr(c.name)}">
         <div class="ctop"><div><div class="unit">${c.name}</div><div class="col">${c.location || c.sido}</div></div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-            <button class="cart-add ${CART.has(ck) ? "on" : ""}" data-add="${escAttr(ck)}" title="비교함에 담기">${CART.has(ck) ? "✓" : "+"}</button>
-            <span class="tag" style="background:${REGION_COLORS[c.region]}">${c.region}</span></div></div>
+          <span class="tag" style="background:${REGION_COLORS[c.region]}">${c.region}</span></div>
         <div class="badge-row"><span class="badge">학과 ${c.deptCount}개</span>${Object.keys(c.cats).slice(0, 3).map(k => `<span class="badge">${k}</span>`).join("")}</div>
         <div class="metrics">${naMetric("취업률", c.employRate["2024"], "%")}${naMetric("충원율", c.fillRate["2025"], "%")}${naMetric("등록금", c.tuition["평균"] ? (c.tuition["평균"] / 1000).toFixed(1) : null, "백만")}</div>
-      </div>`; }).join("") + `</div>`;
+      </div>`).join("") + `</div>`;
   }
   function deptTable(list) {
     const rows = list.slice(0, 500).map(d => `<tr data-dept="${d.id}">
@@ -367,9 +365,7 @@
     const depts = DATA.departments.filter(d => d.college === name);
     const tu = c.tuition;
     const tuItems = ["인문사회", "자연과학", "공학", "예체능"].map(k => ({ label: k.slice(0, 2), value: tu[k] ? Math.round(tu[k] / 1000 * 10) / 10 : null, color: "#4263eb" }));
-    const ck = "c:" + c.name;
     const body = `
-      <button class="modal-add ${CART.has(ck) ? "on" : ""}" data-toggleadd="${escAttr(ck)}">${CART.has(ck) ? "✓ 비교함에 담김" : "＋ 비교함에 담기"}</button>
       <section><h3>핵심 지표</h3><div class="kv">
         ${kv("권역 · 지역", `${c.region} · ${c.location || c.sido}`)}
         ${kv("개설 학과", c.deptCount + "개")}
@@ -444,19 +440,20 @@
   }
 
   /* ---------- 비교함 전용 페이지 ---------- */
+  const COMPARE_ROWS = [
+    { label: "대학", get: i => i.college },
+    { label: "지역", get: i => `${i.region} · ${i.sido}` },
+    { label: "계열", get: i => i.cat || "-" },
+    { label: "전형", get: i => i.track || "-" },
+    { label: "경쟁률", get: i => fmt(i.comp, ":1") },
+    { label: "평균 교과등급", get: i => fmt(i.avg), num: i => i.avg, dir: "low" },
+    { label: "취업률", get: i => fmt(i.employ, "%"), num: i => i.employ, dir: "high" },
+    { label: "충원율", get: i => fmt(i.fill, "%"), num: i => i.fill, dir: "high" },
+    { label: "평균 등록금", get: i => i.tuition ? (i.tuition / 1000).toFixed(1) + "백만" : "정보없음", num: i => i.tuition, dir: "low" },
+    { label: "전공심화", get: i => i.deepen === "O" ? "개설" : "정보없음" },
+  ];
   function compareTableHtml(items) {
-    const rows = [
-      { label: "유형", get: i => i.type },
-      { label: "대학", get: i => i.college },
-      { label: "지역", get: i => `${i.region} · ${i.sido}` },
-      { label: "계열", get: i => i.cat || "-" },
-      { label: "경쟁률", get: i => fmt(i.comp, ":1") },
-      { label: "평균 교과등급", get: i => fmt(i.avg), num: i => i.avg, dir: "low" },
-      { label: "취업률", get: i => fmt(i.employ, "%"), num: i => i.employ, dir: "high" },
-      { label: "충원율", get: i => fmt(i.fill, "%"), num: i => i.fill, dir: "high" },
-      { label: "평균 등록금", get: i => i.tuition ? (i.tuition / 1000).toFixed(1) + "백만" : "정보없음", num: i => i.tuition, dir: "low" },
-      { label: "전공심화", get: i => i.deepen === "O" ? "개설" : (i.type === "학과" ? "정보없음" : "-") },
-    ];
+    const rows = COMPARE_ROWS;
     const head = `<tr><th class="rowh">항목</th>` + items.map(i =>
       `<th><div class="cname" data-open="${escAttr(i.key)}">${i.title}</div><div class="csub">${i.college}</div>
         <button class="rm" data-rm="${escAttr(i.key)}">✕ 제거</button></th>`).join("") + `</tr>`;
@@ -481,27 +478,45 @@
     if (!items.length) {
       view.innerHTML = `<div class="empty">
         🛒 비교함이 비어 있습니다.<br><br>
-        학과·대학 카드 오른쪽 위의 <b style="color:var(--brand)">＋</b> 버튼을 눌러 담으면<br>여기서 나란히 비교할 수 있어요.<br><br>
+        학과 카드 오른쪽 위의 <b style="color:var(--brand)">＋</b> 버튼을 눌러 담으면<br>여기서 나란히 비교할 수 있어요.<br><br>
         <a class="chip on" href="#/browse" style="padding:8px 16px">탐색하러 가기</a></div>`;
       return;
     }
     view.innerHTML = `
       <div class="hero" style="padding:24px 0 6px;text-align:left">
         <h1 style="font-size:24px">🛒 내 비교함</h1>
-        <p>담아둔 학과·대학 <b>${items.length}개</b>를 나란히 비교합니다.</p>
+        <p>담아둔 학과 <b>${items.length}개</b>를 나란히 비교합니다.</p>
       </div>
       <div class="results-head">
         <div class="count"><b>${items.length}</b> 개 담음</div>
         <div class="toolbar">
           <a class="chip" href="#/browse">＋ 더 담으러 가기</a>
+          <button class="chip" id="cmpCsv">⬇ CSV 내보내기</button>
+          <button class="chip" id="cmpPrint">🖨 인쇄 / PDF</button>
           <button class="cart-clear" id="cmpClear" style="color:#c0392b">전체 비우기</button>
         </div>
       </div>
-      ${compareTableHtml(items)}`;
+      <div id="cmpExport">${compareTableHtml(items)}</div>`;
     view.querySelectorAll("[data-rm]").forEach(btn => btn.onclick = () => { toggleCart(btn.dataset.rm); renderCompare(); });
     view.querySelectorAll("[data-open]").forEach(el => { el.style.cursor = "pointer";
       el.onclick = () => { const k = el.dataset.open; k[0] === "d" ? openDept(+k.slice(2)) : openCollege(k.slice(2)); }; });
     const cc = $("#cmpClear"); if (cc) cc.onclick = () => { CART.clear(); saveCart(); updateCartBar(); renderCompare(); };
+    $("#cmpCsv").onclick = () => exportCompareCSV(items);
+    $("#cmpPrint").onclick = () => window.print();
+  }
+
+  function exportCompareCSV(items) {
+    const esc = v => { const s = String(v == null ? "" : v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const lines = [];
+    lines.push(["항목", ...items.map(i => `${i.title} (${i.college})`)].map(esc).join(","));
+    COMPARE_ROWS.forEach(r => lines.push([r.label, ...items.map(i => r.get(i))].map(esc).join(",")));
+    // BOM 추가 → 엑셀에서 한글 깨짐 방지
+    const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `전문대_비교_${items.length}개.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   /* ---------- 유틸 ---------- */

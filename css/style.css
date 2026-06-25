@@ -188,6 +188,16 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 .cmp .rm{border:none;background:none;color:#c0392b;font-size:12px;margin-top:6px}
 .cmp-x{font-size:11px;color:#aeb4c2}
 
+/* 인쇄(PDF) — 비교표만 깔끔하게 */
+@media print{
+  .site-header,.site-footer,.cart-bar,.toolbar,.hero p,.results-head .count{display:none !important}
+  body{background:#fff}
+  .hero h1{font-size:18px}
+  .cmp th,.cmp td{font-size:11px;padding:7px 9px}
+  .cmp .rm{display:none}
+  .best{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+
 /* Responsive */
 @media(max-width:900px){
   .home-grid{grid-template-columns:1fr}
