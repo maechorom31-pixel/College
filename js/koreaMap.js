@@ -1,86 +1,72 @@
-/* 권역 단위 대한민국 약식 지도(SVG) 생성기
-   - 데이터가 시·도/권역 단위이므로 외부 지도 API 없이 자립형 SVG로 구성
-   - 4개 권역을 한반도 배치에 맞춰 클릭 가능한 영역으로 표시 */
+/* 대한민국 시·도(17) 단위 상세 지도 — 실제 행정구역 경계(GeoJSON 변환) 사용
+   - 권역 색으로 칠하되 시·도 단위로 클릭/호버 가능
+   - 외부 지도 API 불필요 (경로는 js/koreaGeo.js에 내장) */
 (function (global) {
-  // 권역별 폴리곤(한반도 지리 배치 근사) + 라벨 좌표
-  const ZONES = {
-    "수도권": {
-      poly: "92,52 186,46 200,104 156,134 96,122 70,84",
-      label: [128, 92], color: "var(--r-수도권)"
-    },
-    "중부권": {
-      poly: "190,56 292,78 300,172 224,190 186,150 180,98",
-      label: [240, 128], color: "var(--r-중부권)"
-    },
-    "영남권": {
-      poly: "240,182 308,202 302,304 256,350 216,302 224,200",
-      label: [264, 262], color: "var(--r-영남권)"
-    },
-    "호남권": {
-      poly: "94,150 178,166 212,236 176,332 118,312 96,224",
-      label: [148, 244], color: "var(--r-호남권)"
-    }
+  const REGION_COLORS = {
+    "수도권": "#4263eb", "중부권": "#15aabf", "영남권": "#f76707", "호남권": "#37b24d"
+  };
+  // 작은 광역시는 라벨이 겹치므로 지시선으로 바깥에 표기
+  const OUTSIDE = {
+    "서울": [-46, -6], "인천": [-40, -2], "세종": [40, -10],
+    "대전": [44, 4], "광주": [-40, 6], "대구": [40, -4],
+    "울산": [40, 2], "부산": [40, 8]
   };
 
-  function buildKoreaMap(meta, onRegionClick) {
-    const stats = meta.regionStats || {};
+  function buildKoreaMap(meta, sidoCounts, onSidoClick) {
+    const geo = global.KOREA_GEO;
     const NS = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(NS, "svg");
     svg.setAttribute("id", "koreaMap");
-    svg.setAttribute("viewBox", "0 0 370 430");
+    svg.setAttribute("viewBox", geo.viewBox);
     svg.setAttribute("role", "group");
-    svg.setAttribute("aria-label", "권역별 지도");
+    svg.setAttribute("aria-label", "시·도별 대한민국 지도");
 
-    Object.entries(ZONES).forEach(([region, z]) => {
-      const st = stats[region] || { colleges: 0, depts: 0 };
+    const tip = document.createElementNS(NS, "g");
+    tip.style.pointerEvents = "none"; tip.style.opacity = 0;
+
+    geo.provinces.forEach(p => {
+      const cnt = sidoCounts[p.name] || 0;
       const g = document.createElementNS(NS, "g");
       g.style.cursor = "pointer";
-      g.setAttribute("data-region", region);
       g.setAttribute("tabindex", "0");
       g.setAttribute("role", "button");
-      g.setAttribute("aria-label", `${region} 대학 ${st.colleges}개`);
+      g.setAttribute("aria-label", `${p.name} 대학 ${cnt}개`);
 
-      const poly = document.createElementNS(NS, "polygon");
-      poly.setAttribute("class", "region-zone");
-      poly.setAttribute("points", z.poly);
-      poly.setAttribute("fill", z.color);
-      g.appendChild(poly);
+      const path = document.createElementNS(NS, "path");
+      path.setAttribute("d", p.d);
+      path.setAttribute("fill", REGION_COLORS[p.region]);
+      path.setAttribute("class", "prov");
+      g.appendChild(path);
 
-      const t1 = document.createElementNS(NS, "text");
-      t1.setAttribute("class", "zone-label");
-      t1.setAttribute("x", z.label[0]); t1.setAttribute("y", z.label[1]);
-      t1.textContent = region;
-      g.appendChild(t1);
+      // 라벨
+      const out = OUTSIDE[p.name];
+      const lx = p.label[0] + (out ? out[0] : 0);
+      const ly = p.label[1] + (out ? out[1] : 0);
+      if (out) {
+        const ln = document.createElementNS(NS, "line");
+        ln.setAttribute("x1", p.label[0]); ln.setAttribute("y1", p.label[1]);
+        ln.setAttribute("x2", lx); ln.setAttribute("y2", ly - 4);
+        ln.setAttribute("class", "lead");
+        g.appendChild(ln);
+      }
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("x", lx); t.setAttribute("y", ly);
+      t.setAttribute("class", "prov-label" + (out ? " outside" : ""));
+      t.textContent = p.name;
+      g.appendChild(t);
+      const tc = document.createElementNS(NS, "text");
+      tc.setAttribute("x", lx); tc.setAttribute("y", ly + 15);
+      tc.setAttribute("class", "prov-count" + (out ? " outside" : ""));
+      tc.textContent = cnt;
+      g.appendChild(tc);
 
-      const t2 = document.createElementNS(NS, "text");
-      t2.setAttribute("class", "zone-count");
-      t2.setAttribute("x", z.label[0]); t2.setAttribute("y", z.label[1] + 18);
-      t2.textContent = `${st.colleges}개 대학`;
-      g.appendChild(t2);
-
-      const fire = () => onRegionClick(region);
+      const fire = () => onSidoClick(p.name, p.region);
       g.addEventListener("click", fire);
       g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fire(); } });
+      g.addEventListener("mouseenter", () => path.classList.add("hot"));
+      g.addEventListener("mouseleave", () => path.classList.remove("hot"));
       svg.appendChild(g);
     });
-
-    // 제주 표시(호남권 소속) — 작은 섬
-    const jeju = document.createElementNS(NS, "g");
-    jeju.setAttribute("data-region", "호남권");
-    jeju.style.cursor = "pointer";
-    const jc = document.createElementNS(NS, "ellipse");
-    jc.setAttribute("cx", 150); jc.setAttribute("cy", 388);
-    jc.setAttribute("rx", 30); jc.setAttribute("ry", 15);
-    jc.setAttribute("class", "region-zone");
-    jc.setAttribute("fill", "var(--r-호남권)");
-    jeju.appendChild(jc);
-    const jt = document.createElementNS(NS, "text");
-    jt.setAttribute("class", "jeju-note"); jt.setAttribute("x", 150); jt.setAttribute("y", 392);
-    jt.setAttribute("fill", "#fff"); jt.setAttribute("font-size", "11");
-    jt.textContent = "제주";
-    jeju.appendChild(jt);
-    jeju.addEventListener("click", () => onRegionClick("호남권"));
-    svg.appendChild(jeju);
 
     return svg;
   }

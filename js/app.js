@@ -18,6 +18,32 @@
   let viewMode = "cards";       // cards | table
   let sortKey = "employ";
 
+  /* ---------- 장바구니(비교함) ---------- */
+  const CART = loadCart();
+  function loadCart() { try { return new Set(JSON.parse(localStorage.getItem("cart") || "[]")); } catch (e) { return new Set(); } }
+  function saveCart() { localStorage.setItem("cart", JSON.stringify([...CART])); }
+  function toggleCart(key) { CART.has(key) ? CART.delete(key) : CART.add(key); saveCart(); updateCartBar(); }
+  function updateCartBar() {
+    const bar = $("#cartBar"); if (!bar) return;
+    $("#cartCount").textContent = CART.size;
+    bar.classList.toggle("hidden", CART.size === 0);
+  }
+  function cartItem(key) {
+    if (key[0] === "d") {
+      const d = DATA.departments.find(x => x.id === +key.slice(2)); if (!d) return null;
+      const c = DATA.byName[d.college];
+      return { key, type: "학과", title: d.unit, college: d.college, region: d.region, sido: d.sido,
+        cat: [d.cat1, d.cat2, d.cat3].filter(Boolean).join(" › "),
+        comp: d.comp26 ?? d.comp25, avg: d.avg26 ?? d.avg25, employ: d.employ,
+        fill: c ? c.fillRate["2025"] : null, tuition: c ? c.tuition["평균"] : null,
+        level: d.level, deepen: d.deepen };
+    }
+    const c = DATA.byName[key.slice(2)]; if (!c) return null;
+    return { key, type: "대학", title: c.name, college: c.name, region: c.region, sido: c.sido,
+      cat: Object.keys(c.cats).join(", "), comp: null, avg: null, employ: c.employRate["2024"],
+      fill: c.fillRate["2025"], tuition: c.tuition["평균"], level: null, deepen: null };
+  }
+
   function newFilters() {
     return { regions: new Set(), sidos: new Set(), cat1: "", cat2: "", cat3: "",
              employMin: 0, tuitionMax: 0, compMax: 0, keyword: "" };
@@ -39,9 +65,14 @@
     }
     $("#globalSearch").addEventListener("input", e => {
       F.keyword = e.target.value.trim();
-      if (location.hash !== "#/browse") location.hash = "#/browse";
+      entity = "dept";            // 검색하면 해당 학과만 보이도록 학과 뷰로
+      sortKey = "employ";
+      if (!location.hash.startsWith("#/browse")) location.hash = "#/browse";
       else renderResults();
     });
+    $("#cartOpen").addEventListener("click", openCompare);
+    $("#cartClear").addEventListener("click", () => { CART.clear(); saveCart(); updateCartBar(); if (location.hash.startsWith("#/browse")) renderResults(); });
+    updateCartBar();
     window.addEventListener("hashchange", route);
     route();
   }
@@ -69,14 +100,19 @@
       </section>
       <div class="home-grid">
         <div class="map-panel">
-          <h2>권역 지도</h2>
-          <p class="hint">권역을 클릭하면 해당 지역 대학·학과로 이동합니다</p>
+          <h2>시·도 지도</h2>
+          <p class="hint">시·도를 클릭하면 해당 지역 대학으로 이동합니다 · 색은 권역</p>
           <div id="mapHost"></div>
+          <div class="map-legend">
+            ${m.regions.map(rg => `<span><i style="background:${REGION_COLORS[rg]}"></i>${rg}</span>`).join("")}
+          </div>
         </div>
         <div class="region-cards" id="regionCards"></div>
       </div>`;
 
-    const mapEl = buildKoreaMap(m, gotoRegion);
+    const sidoCounts = {};
+    DATA.colleges.forEach(c => { if (c.sido) sidoCounts[c.sido] = (sidoCounts[c.sido] || 0) + 1; });
+    const mapEl = buildKoreaMap(m, sidoCounts, gotoSido);
     $("#mapHost").appendChild(mapEl);
 
     $("#regionCards").innerHTML = m.regions.map(rg => {
@@ -94,6 +130,13 @@
   function gotoRegion(region) {
     Object.assign(F, newFilters());
     F.regions.add(region);
+    entity = "college";
+    location.hash = "#/browse";
+  }
+  function gotoSido(sido, region) {
+    Object.assign(F, newFilters());
+    F.regions.add(region);
+    F.sidos.add(sido);
     entity = "college";
     location.hash = "#/browse";
   }
@@ -268,22 +311,28 @@
   function deptCards(list) {
     return `<div class="cards">` + list.slice(0, 300).map(d => {
       const comp = d.comp26 ?? d.comp25, avg = d.avg26 ?? d.avg25;
+      const ck = "d:" + d.id;
+      const track = d.track26 || d.track25;
       return `<div class="card" data-dept="${d.id}">
         <div class="ctop"><div><div class="unit">${d.unit}</div><div class="col">${d.college} · ${d.sido}</div></div>
-          <span class="tag" style="background:${CAT_COLORS[d.cat1] || "#868e96"}">${d.cat1 || "-"}</span></div>
-        <div class="badge-row">${d.cat3 ? `<span class="badge">${d.cat3}</span>` : ""}${d.level ? `<span class="badge">${d.level}년제</span>` : ""}${d.deepen === "O" ? `<span class="badge">전공심화</span>` : ""}</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <button class="cart-add ${CART.has(ck) ? "on" : ""}" data-add="${ck}" title="비교함에 담기">${CART.has(ck) ? "✓" : "+"}</button>
+            <span class="tag" style="background:${CAT_COLORS[d.cat1] || "#868e96"}">${d.cat1 || "-"}</span></div></div>
+        <div class="badge-row">${d.cat3 ? `<span class="badge">${d.cat3}</span>` : ""}${d.level ? `<span class="badge">${d.level}년제</span>` : ""}${track ? `<span class="badge">${track} 전형</span>` : ""}${d.deepen === "O" ? `<span class="badge">전공심화</span>` : ""}</div>
         <div class="metrics">${naMetric("경쟁률", comp, ":1")}${naMetric("평균등급", avg)}${naMetric("취업률", d.employ, "%")}</div>
       </div>`;
     }).join("") + `</div>` + (list.length > 300 ? `<p class="muted" style="text-align:center;margin-top:14px">상위 300개만 표시됩니다. 필터로 좁혀 보세요.</p>` : "");
   }
   function collegeCards(list) {
-    return `<div class="cards">` + list.map(c => `
+    return `<div class="cards">` + list.map(c => { const ck = "c:" + c.name; return `
       <div class="card" data-college="${escAttr(c.name)}">
         <div class="ctop"><div><div class="unit">${c.name}</div><div class="col">${c.location || c.sido}</div></div>
-          <span class="tag" style="background:${REGION_COLORS[c.region]}">${c.region}</span></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <button class="cart-add ${CART.has(ck) ? "on" : ""}" data-add="${escAttr(ck)}" title="비교함에 담기">${CART.has(ck) ? "✓" : "+"}</button>
+            <span class="tag" style="background:${REGION_COLORS[c.region]}">${c.region}</span></div></div>
         <div class="badge-row"><span class="badge">학과 ${c.deptCount}개</span>${Object.keys(c.cats).slice(0, 3).map(k => `<span class="badge">${k}</span>`).join("")}</div>
         <div class="metrics">${naMetric("취업률", c.employRate["2024"], "%")}${naMetric("충원율", c.fillRate["2025"], "%")}${naMetric("등록금", c.tuition["평균"] ? (c.tuition["평균"] / 1000).toFixed(1) : null, "백만")}</div>
-      </div>`).join("") + `</div>`;
+      </div>`; }).join("") + `</div>`;
   }
   function deptTable(list) {
     const rows = list.slice(0, 500).map(d => `<tr data-dept="${d.id}">
@@ -300,6 +349,12 @@
   function bindResultClicks(isDept) {
     view.querySelectorAll("[data-dept]").forEach(el => el.onclick = () => openDept(+el.dataset.dept));
     view.querySelectorAll("[data-college]").forEach(el => el.onclick = () => openCollege(el.dataset.college));
+    view.querySelectorAll(".cart-add[data-add]").forEach(btn => btn.onclick = e => {
+      e.stopPropagation();
+      toggleCart(btn.dataset.add);
+      const on = CART.has(btn.dataset.add);
+      btn.classList.toggle("on", on); btn.textContent = on ? "✓" : "+";
+    });
   }
 
   /* ---------- 상세 모달 ---------- */
@@ -308,7 +363,9 @@
     const depts = DATA.departments.filter(d => d.college === name);
     const tu = c.tuition;
     const tuItems = ["인문사회", "자연과학", "공학", "예체능"].map(k => ({ label: k.slice(0, 2), value: tu[k] ? Math.round(tu[k] / 1000 * 10) / 10 : null, color: "#4263eb" }));
+    const ck = "c:" + c.name;
     const body = `
+      <button class="modal-add ${CART.has(ck) ? "on" : ""}" data-toggleadd="${escAttr(ck)}">${CART.has(ck) ? "✓ 비교함에 담김" : "＋ 비교함에 담기"}</button>
       <section><h3>핵심 지표</h3><div class="kv">
         ${kv("권역 · 지역", `${c.region} · ${c.location || c.sido}`)}
         ${kv("개설 학과", c.deptCount + "개")}
@@ -332,13 +389,16 @@
   function openDept(id) {
     const d = DATA.departments.find(x => x.id === id); if (!d) return;
     const c = DATA.byName[d.college];
+    const ck = "d:" + d.id;
     const body = `
+      <button class="modal-add ${CART.has(ck) ? "on" : ""}" data-toggleadd="${ck}">${CART.has(ck) ? "✓ 비교함에 담김" : "＋ 비교함에 담기"}</button>
       <section><h3>학과 정보</h3><div class="kv">
         ${kv("대학", d.college)}${kv("계열", [d.cat1, d.cat2, d.cat3].filter(Boolean).join(" › "))}
         ${kv("지역", `${d.region} · ${d.location || d.sido}`)}${kv("학제", d.level ? d.level + "년제" : "정보없음")}
         ${kv("전공심화과정", d.deepen === "O" ? "개설" : "정보없음")}${kv("취업률(2024)", fmt(d.employ, "%"))}
       </div></section>
-      <section><h3>입결 비교 (수시1차 일반 · 2025 vs 2026)</h3><div class="kv">
+      <section><h3>입결 비교 (수시1차 · 2025 vs 2026)</h3><div class="kv">
+        ${kv("대표 전형", `${d.track25 || "-"} → ${d.track26 || "-"}`)}
         ${kv("경쟁률", `${fmt(d.comp25)} → ${fmt(d.comp26)}`)}
         ${kv("평균 교과등급", `${fmt(d.avg25)} → ${fmt(d.avg26)}`)}
         ${kv("최저 교과등급", `${fmt(d.min25)} → ${fmt(d.min26)}`)}
@@ -370,6 +430,54 @@
     document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", esc); } });
     bg.querySelectorAll("[data-dept]").forEach(el => el.onclick = () => { close(); openDept(+el.dataset.dept); });
     bg.querySelectorAll("[data-college]").forEach(el => el.onclick = () => { close(); openCollege(el.dataset.college); });
+    bg.querySelectorAll("[data-toggleadd]").forEach(btn => btn.onclick = () => {
+      toggleCart(btn.dataset.toggleadd);
+      const on = CART.has(btn.dataset.toggleadd);
+      btn.classList.toggle("on", on); btn.textContent = on ? "✓ 비교함에 담김" : "＋ 비교함에 담기";
+    });
+    bg._close = close;
+    return bg;
+  }
+
+  /* ---------- 비교함 보기 ---------- */
+  function openCompare() {
+    const items = [...CART].map(cartItem).filter(Boolean);
+    if (!items.length) return;
+    const rows = [
+      { label: "유형", get: i => i.type },
+      { label: "대학", get: i => i.college },
+      { label: "지역", get: i => `${i.region} · ${i.sido}` },
+      { label: "계열", get: i => i.cat || "-" },
+      { label: "경쟁률", get: i => fmt(i.comp, ":1") },
+      { label: "평균 교과등급", get: i => fmt(i.avg), num: i => i.avg, dir: "low" },
+      { label: "취업률", get: i => fmt(i.employ, "%"), num: i => i.employ, dir: "high" },
+      { label: "충원율", get: i => fmt(i.fill, "%"), num: i => i.fill, dir: "high" },
+      { label: "평균 등록금", get: i => i.tuition ? (i.tuition / 1000).toFixed(1) + "백만" : "정보없음", num: i => i.tuition, dir: "low" },
+      { label: "전공심화", get: i => i.deepen === "O" ? "개설" : (i.type === "학과" ? "정보없음" : "-") },
+    ];
+    const head = `<tr><th class="rowh">항목</th>` + items.map(i =>
+      `<th><div class="cname">${i.title}</div><div class="csub">${i.type}</div>
+        <button class="rm" data-rm="${escAttr(i.key)}">✕ 제거</button></th>`).join("") + `</tr>`;
+    const body = rows.map(r => {
+      let best = null;
+      if (r.dir) {
+        const vals = items.map(r.num).filter(v => v != null);
+        if (vals.length > 1) best = r.dir === "high" ? Math.max(...vals) : Math.min(...vals);
+      }
+      const cells = items.map(i => {
+        const isBest = r.dir && r.num(i) != null && r.num(i) === best;
+        return `<td class="${isBest ? "best" : ""}">${r.get(i)}</td>`;
+      }).join("");
+      return `<tr><td class="rowh">${r.label}</td>${cells}</tr>`;
+    }).join("");
+    const html = `<div class="cmp-wrap"><table class="cmp"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+      <p class="cmp-x" style="margin-top:12px">초록색은 항목 중 가장 우수한 값입니다 · 경쟁률·등급은 낮을수록 합격 가능성이 높습니다.</p>`;
+    const bg = showModal("비교함", `${items.length}개 항목 비교`, html);
+    bg.querySelectorAll("[data-rm]").forEach(btn => btn.onclick = () => {
+      toggleCart(btn.dataset.rm); bg._close();
+      if (CART.size) openCompare();
+      if (location.hash.startsWith("#/browse")) renderResults();
+    });
   }
 
   /* ---------- 유틸 ---------- */

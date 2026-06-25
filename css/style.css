@@ -49,13 +49,19 @@ button{font-family:inherit;cursor:pointer}
   box-shadow:var(--shadow);padding:18px;text-align:center}
 .map-panel h2{margin:0 0 2px;font-size:18px}
 .map-panel .hint{font-size:13px;color:var(--muted);margin:0 0 8px}
-#koreaMap{width:100%;height:auto;max-height:460px}
-.region-zone{cursor:pointer;transition:.18s;stroke:#fff;stroke-width:2.5;stroke-linejoin:round}
-.region-zone:hover{filter:brightness(1.06)}
-.region-zone.dim{opacity:.32}
-.zone-label{font-weight:800;fill:#fff;text-anchor:middle;pointer-events:none;font-size:16px}
-.zone-count{fill:#fff;text-anchor:middle;pointer-events:none;font-size:12px;opacity:.92}
-.jeju-note{fill:var(--muted);font-size:11px;text-anchor:middle}
+#koreaMap{width:100%;height:auto;max-height:540px}
+.prov{stroke:#fff;stroke-width:1.4;stroke-linejoin:round;transition:.15s}
+.prov.hot{filter:brightness(1.12);stroke-width:2.2}
+.prov-label{font-weight:700;fill:#fff;text-anchor:middle;pointer-events:none;font-size:13px;
+  paint-order:stroke;stroke:rgba(0,0,0,.25);stroke-width:2.4px}
+.prov-label.outside{fill:#1d2433;stroke:#fff;stroke-width:3px}
+.prov-count{fill:#fff;text-anchor:middle;pointer-events:none;font-size:11px;opacity:.95;
+  paint-order:stroke;stroke:rgba(0,0,0,.22);stroke-width:2px}
+.prov-count.outside{fill:var(--muted);stroke:#fff;stroke-width:2.6px}
+.lead{stroke:#adb5bd;stroke-width:1}
+.map-legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:6px;font-size:12px}
+.map-legend span{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
+.map-legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
 
 /* Region cards beside map */
 .region-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -145,6 +151,35 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
   border-radius:9px;margin-bottom:7px;font-size:14px;cursor:pointer;transition:.12s}
 .dept-link:hover{background:var(--brand-soft);border-color:var(--brand)}
 .prose{font-size:14px;color:#3a4255;line-height:1.6;white-space:pre-wrap}
+
+/* 장바구니(비교함) */
+.cart-bar{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;align-items:center;gap:12px;background:var(--ink);color:#fff;
+  padding:11px 16px;border-radius:999px;box-shadow:0 8px 28px rgba(20,30,60,.32)}
+.cart-bar.hidden{display:none}
+.cart-info b{color:#8bb0ff;font-size:17px}
+.cart-btn{background:var(--brand);color:#fff;border:none;border-radius:999px;padding:8px 18px;font-weight:700;font-size:14px}
+.cart-clear{background:transparent;color:#aeb4c2;border:none;font-size:13px}
+.cart-add{border:1px solid var(--line);background:#fff;border-radius:8px;width:30px;height:30px;
+  font-size:16px;color:var(--brand);flex-shrink:0;line-height:1;transition:.12s}
+.cart-add:hover{background:var(--brand-soft)}
+.cart-add.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.modal-add{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--brand);background:#fff;
+  color:var(--brand);border-radius:9px;padding:7px 14px;font-weight:700;font-size:14px;margin-top:4px}
+.modal-add.on{background:var(--brand);color:#fff}
+
+/* 비교 표 */
+.cmp-wrap{overflow-x:auto}
+.cmp{border-collapse:separate;border-spacing:0;width:100%;font-size:13px}
+.cmp th,.cmp td{padding:11px 13px;border-bottom:1px solid var(--line);text-align:center;min-width:150px;vertical-align:top}
+.cmp th.rowh,.cmp td.rowh{position:sticky;left:0;background:#f8f9fc;text-align:left;font-weight:700;
+  color:var(--muted);min-width:120px;z-index:1}
+.cmp thead th{background:#fff;border-bottom:2px solid var(--line)}
+.cmp .cname{font-weight:800;font-size:15px}
+.cmp .csub{font-size:12px;color:var(--muted);font-weight:400}
+.cmp .best{color:var(--good);font-weight:800}
+.cmp .rm{border:none;background:none;color:#c0392b;font-size:12px;margin-top:6px}
+.cmp-x{font-size:11px;color:#aeb4c2}
 
 /* Responsive */
 @media(max-width:900px){
