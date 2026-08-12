@@ -10,8 +10,8 @@
   const VICON = { "안정": "◎", "적정": "○", "도전": "△", "어려움": "×" };
 
   const state = {
-    match: { my: 4.0, track: "일반고", cat1: "", regions: new Set(), employMin: 0, verdicts: new Set(["안정", "적정", "도전"]), limit: 60 },
-    cal: { phase: "수시1차", regions: new Set(), kw: "" },
+    match: { my: 4.0, track: "", cat1: "", regions: new Set(), employMin: 0, verdicts: new Set(["안정", "적정", "도전"]), limit: 60 },
+    cal: { phase: "수시1차", regions: new Set(), kw: "", day: "" },
     tr: { target: "", kw: "" },
     vs: { my: 3.5, cat1: "간호보건", regions: new Set(), limit: 40 },
   };
@@ -31,7 +31,7 @@
           <label class="mfield wide">내신 평균 등급 <b id="myOut">${st.my.toFixed(1)}</b>
             <input type="range" id="myGrade" min="1" max="9" step="0.1" value="${st.my}"></label>
           <div class="mfield"><span>전형 유형</span>
-            ${S.chipList(m.tracks, st.track, null, { cls: "m-track" })}</div>
+            ${S.chipList([{ value: "", label: "전형 무관 (유리한 쪽)" }, ...m.tracks], st.track, null, { cls: "m-track" })}</div>
           <div class="mfield"><span>계열</span>
             ${S.chipList([{ value: "", label: "전체" }, ...Object.keys(m.cats)], st.cat1, null, { cls: "m-cat" })}</div>
           <div class="mfield"><span>권역</span>
@@ -40,7 +40,9 @@
             <input type="range" id="mEmploy" min="0" max="95" step="5" value="${st.employMin}"></label>
         </div>
         <p class="hint">전형 유형이란? <b>일반</b>=전형 제한 없음 · <b>일반고</b>=일반계 고교 출신 · <b>특성화고</b>=특성화·마이스터고 출신 ·
-          <b>대학자체기준</b>=대학이 정한 별도 기준. 같은 학과라도 전형에 따라 합격 등급이 크게 다릅니다.</p>
+          <b>대학자체기준</b>=대학이 정한 별도 기준. 같은 학과라도 전형에 따라 합격 등급이 크게 다릅니다.<br>
+          <b>전형 무관</b>은 지원 자격을 따지지 않고 학과마다 가장 유리한 전형을 골라 보여줍니다 —
+          본인이 지원할 수 있는 전형인지 표의 ‘유리한 전형’ 열에서 꼭 확인하세요.</p>
         <div id="matchOut"></div>
       </section>`;
 
@@ -66,16 +68,27 @@
   function matchRows() {
     const st = state.match;
     const out = [];
+    let scope = 0, noData = 0;
     DATA.departments.forEach(d => {
       if (st.cat1 && d.cat1 !== st.cat1) return;
       if (st.regions.size && !st.regions.has(d.region)) return;
       if (st.employMin && !(d.employ >= st.employMin)) return;
-      const t = (d.tracks || {})[st.track];
-      if (!t || (t.avg == null && t.min == null)) return;
-      const v = S.verdict(st.my, t.avg, t.min);
-      if (!v) return;
-      out.push({ d, t, v });
+      scope++;
+      // 전형 무관 모드: 지원 자격이 되는 전형 중 가장 유리한 판정을 대표로 삼는다
+      const cands = st.track
+        ? [[st.track, (d.tracks || {})[st.track]]]
+        : Object.entries(d.tracks || {});
+      let best = null;
+      cands.forEach(([name, t]) => {
+        if (!t || (t.avg == null && t.min == null)) return;
+        const v = S.verdict(st.my, t.avg, t.min);
+        if (!v) return;
+        if (!best || ORDER.indexOf(v) < ORDER.indexOf(best.v)) best = { d, t, v, track: name };
+      });
+      if (!best) { noData++; return; }
+      out.push(best);
     });
+    out.scope = scope; out.noData = noData;
     return out;
   }
 
@@ -94,20 +107,25 @@
           <i>${VICON[v]}</i><b>${counts[v].toLocaleString()}</b><span>${v}</span>
           <em>${esc(VM[v].desc)}</em></button>`).join("")}
       </div>
+      ${rows.noData ? `<p class="hint note-line">조건에 드는 학과 ${rows.scope.toLocaleString()}개 중
+        <b>${rows.noData.toLocaleString()}개</b>는 ${st.track ? `<b>${esc(st.track)}</b> 전형의 ` : ""}2026 입결이 공개되지 않아 판정에서 빠졌습니다.
+        ${st.track ? "<b>전형 무관</b>으로 바꾸면 판정 대상이 늘어납니다." : ""}</p>` : ""}
       <div class="res-head simple">
         <span class="res-count"><b>${shown.length.toLocaleString()}</b>개 학과</span>
         <button id="mCsv" class="ghost">CSV 내보내기</button>
       </div>
       ${shown.length ? `<div class="tbl-wrap"><table class="tbl">
-        <thead><tr><th>판정</th><th>학과</th><th>대학</th><th>지역</th><th>계열</th>
+        <thead><tr><th>판정</th><th>학과</th><th>대학</th><th>지역</th>
+          <th>${st.track ? "전형" : "유리한 전형"}</th><th>계열</th>
           <th>평균등급</th><th>최저등급</th><th>내 등급과 차이</th><th>경쟁률</th><th>모집</th><th>취업률</th><th></th></tr></thead>
-        <tbody>${shown.slice(0, st.limit).map(({ d, t, v }) => {
+        <tbody>${shown.slice(0, st.limit).map(({ d, t, v, track }) => {
       const diff = t.avg != null ? +(st.my - t.avg).toFixed(2) : null;
       return `<tr data-did="${d.id}">
           <td><span class="vpill" style="--vc:${VCOLOR[v]}">${VICON[v]} ${v}</span></td>
           <td class="tl"><b>${esc(d.unit)}</b></td>
           <td class="tl">${esc(d.college)}</td>
           <td>${esc(d.sido)}</td>
+          <td class="tl nowrap"><span class="cat-dot sm" style="background:${global.Detail.trackColor(track || st.track)}"></span>${esc(track || st.track)}</td>
           <td class="tl"><span class="cat-dot sm" style="background:${global.App.catColor(d.cat1)}"></span>${esc(d.cat2 || d.cat1)}</td>
           <td>${t.avg ?? "–"}</td><td>${t.min ?? "–"}</td>
           <td class="${diff != null && diff <= 0 ? "pos" : "neg"}">${diff == null ? "–" : (diff > 0 ? "+" : "") + diff}</td>
@@ -131,8 +149,8 @@
     if (more) more.addEventListener("click", () => { st.limit += 60; renderMatch(); });
     $("#mCsv").addEventListener("click", () => S.download("내등급_매칭.csv", S.csv([
       ["판정", "학과", "대학", "권역", "시도", "계열", "전형", "평균등급", "최저등급", "경쟁률", "모집", "취업률", "등록금(천원)"],
-      ...shown.map(({ d, t, v }) => [v, d.unit, d.college, d.region, d.sido, catPath(d),
-        st.track, t.avg, t.min, t.comp, t.quota, d.employ, d.tuition])
+      ...shown.map(({ d, t, v, track }) => [v, d.unit, d.college, d.region, d.sido, catPath(d),
+        track || st.track, t.avg, t.min, t.comp, t.quota, d.employ, d.tuition])
     ])));
   }
 
@@ -161,28 +179,70 @@
     renderCal();
   }
 
+  /** "2026-10-02 ~ 2026-10-03" -> ["2026-10-02","2026-10-03"] (범위는 날짜별로 펼침) */
+  function expandDays(v) {
+    if (!v) return [];
+    const ds = String(v).match(/\d{4}-\d{2}-\d{2}/g);
+    if (!ds) return [];
+    if (ds.length < 2) return [ds[0]];
+    const out = [], end = new Date(ds[1] + "T00:00:00");
+    let cur = new Date(ds[0] + "T00:00:00");
+    while (cur <= end && out.length < 40) {
+      out.push(cur.toISOString().slice(0, 10));
+      cur = new Date(cur.getTime() + 86400000);
+    }
+    return out.length ? out : ds;
+  }
+
   function renderCal() {
     const st = state.cal;
-    const list = DATA.colleges.filter(c => {
+    const pool = DATA.colleges.filter(c => {
       if (!c.schedule[st.phase]) return false;
       if (st.regions.size && !st.regions.has(c.region)) return false;
       if (st.kw && !c.name.includes(st.kw)) return false;
       return true;
-    }).sort((a, b) => {
-      const x = c => (c.schedule[st.phase].result || "9999");
-      return x(a).localeCompare(x(b)) || a.name.localeCompare(b.name, "ko");
     });
 
-    // 면접/실기 실시 대학 수 요약
-    const withI = list.filter(c => c.schedule[st.phase].interview).length;
-    const withP = list.filter(c => c.schedule[st.phase].practical).length;
+    // 같은 날 면접·실기를 보는 대학 모으기 — 복수 지원해도 응시가 겹치면 소용없다
+    const byDay = {};
+    pool.forEach(c => {
+      const x = c.schedule[st.phase];
+      [["면접", x.interview], ["실기", x.practical]].forEach(([kind, val]) =>
+        expandDays(val).forEach(d => (byDay[d] = byDay[d] || []).push({ c, kind })));
+    });
+    const busy = Object.entries(byDay).filter(([, v]) => v.length >= 2).sort((a, b) => a[0].localeCompare(b[0]));
+    const dayHit = st.day ? new Set((byDay[st.day] || []).map(e => e.c.name)) : null;
+
+    const list = pool.filter(c => !dayHit || dayHit.has(c.name))
+      .sort((a, b) => {
+        const x = c => (c.schedule[st.phase].result || "9999");
+        return x(a).localeCompare(x(b)) || a.name.localeCompare(b.name, "ko");
+      });
+
+    const withI = pool.filter(c => c.schedule[st.phase].interview).length;
+    const withP = pool.filter(c => c.schedule[st.phase].practical).length;
+    const peak = busy.slice().sort((a, b) => b[1].length - a[1].length)[0];
 
     $("#calOut").innerHTML = `
       <div class="mini-stats">
-        <div><b>${list.length}</b><span>대학</span></div>
+        <div><b>${pool.length}</b><span>대학</span></div>
         <div><b>${withI}</b><span>면접 실시</span></div>
         <div><b>${withP}</b><span>실기 실시</span></div>
+        <div><b>${peak ? peak[1].length : 0}</b><span>가장 붐비는 날${peak ? " (" + S.dt(peak[0]) + ")" : ""}</span></div>
       </div>
+
+      ${busy.length ? `<div class="daybar">
+        <h3>⚠️ 면접·실기가 겹치는 날 <small>날짜를 누르면 그날 시험을 보는 대학만 남습니다</small></h3>
+        <div class="chips">
+          ${st.day ? `<button class="chip clear" data-day="">전체 보기 ✕</button>` : ""}
+          ${busy.map(([d, v]) => `<button class="chip${st.day === d ? " on" : ""}" data-day="${d}">
+            ${S.dt(d)} <b>${v.length}</b></button>`).join("")}
+        </div>
+        ${st.day ? `<p class="hint"><b>${S.dt(st.day)}</b>에 시험을 보는 대학 ${(byDay[st.day] || []).length}곳 —
+          ${(byDay[st.day] || []).map(e => `${esc(e.c.name)}(${e.kind})`).join(" · ")}.
+          이 중 두 곳 이상에 지원하면 <b>한 곳만 응시</b>할 수 있습니다.</p>` : ""}
+      </div>` : ""}
+
       ${list.length ? `<div class="tbl-wrap"><table class="tbl">
         <thead><tr><th>대학</th><th>지역</th><th>원서접수</th><th>면접</th><th>실기</th>
           <th>합격자 발표</th><th>등록</th><th>충원 발표·등록</th></tr></thead>
@@ -200,6 +260,10 @@
       <div class="res-head simple"><button id="calCsv" class="ghost">CSV 내보내기</button></div>`;
 
     bindRows($("#calOut"));
+    $$("[data-day]", $("#calOut")).forEach(b => b.addEventListener("click", () => {
+      st.day = b.dataset.day === st.day ? "" : b.dataset.day;
+      renderCal();
+    }));
     $("#calCsv").addEventListener("click", () => S.download(`전형일정_${st.phase}.csv`, S.csv([
       ["대학", "권역", "지역", "원서접수", "면접", "실기", "합격자발표", "등록", "충원"],
       ...list.map(c => { const x = c.schedule[st.phase];

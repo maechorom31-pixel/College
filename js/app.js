@@ -41,7 +41,7 @@
       F.keyword = e.target.value.trim();
       entity = "dept"; limit = 60;
       if (!location.hash.startsWith("#/browse")) location.hash = "#/browse";
-      else renderResults();
+      else { const fk = $("#fKeyword"); if (fk) fk.value = e.target.value; renderResults(); }
     });
     $("#navToggle").addEventListener("click", () => {
       const nav = $("#siteNav"), on = nav.classList.toggle("open");
@@ -192,6 +192,10 @@
     $("#filters").innerHTML = `
       <div class="f-head"><b>조건 필터</b><button id="fReset" class="link">초기화</button></div>
 
+      <div class="f-block"><h4>검색</h4>
+        <input type="search" id="fKeyword" class="f-search" value="${esc(F.keyword)}"
+          placeholder="대학·학과명 (예: 간호, 동양미래대)"></div>
+
       <div class="f-block"><h4>권역</h4>${S.chipList(m.regions, [...F.regions], null, { cls: "f-region" })}</div>
       <div class="f-block"><h4>시·도</h4>${S.chipList(sidos, [...F.sidos], null, { cls: "f-sido" })}</div>
 
@@ -263,6 +267,14 @@
     rng("rTuition", "tuitionMax", v => v ? won(v) + " 이하" : "전체");
     rng("rComp", "compMax", v => v ? v + ":1 이하" : "전체");
     rng("rGrade", "gradeMax", v => v ? v + "등급까지" : "전체");
+
+    // 필터 안 검색창 — 모바일에서는 헤더 검색창이 숨겨지므로 이쪽이 유일한 진입점
+    const fkw = $("#fKeyword");
+    fkw.addEventListener("input", () => {
+      F.keyword = fkw.value.trim();
+      $("#globalSearch").value = fkw.value;
+      limit = 60; renderResults();
+    });
 
     $("#fDeep").addEventListener("change", async e => {
       F.deep = e.target.checked;
@@ -407,7 +419,28 @@
 
     const body = $("#resBody");
     if (!list.length) {
-      body.innerHTML = `<div class="empty">조건에 맞는 결과가 없습니다. 조건을 조금 풀어보세요.</div>`;
+      // 자격증·취업분야는 기본 검색 대상이 아니므로, 키워드가 있으면 심화 검색을 권한다
+      const suggestDeep = isDept && F.keyword && !F.deep;
+      body.innerHTML = `<div class="empty">
+        <b>조건에 맞는 결과가 없습니다.</b>
+        ${suggestDeep ? `<p>“${esc(F.keyword)}”은(는) 학과명·대학명에 없습니다.
+            <b>학과소개·취업분야·취득자격증</b>까지 찾아볼까요?</p>
+          <button class="btn" id="goDeep">학과 내용까지 검색하기</button>`
+          : `<p>조건을 조금 풀어보세요.</p>
+             ${activeCount() ? `<button class="btn" id="clearAll">조건 초기화</button>` : ""}`}
+      </div>`;
+      const gd = $("#goDeep");
+      if (gd) gd.addEventListener("click", async () => {
+        gd.disabled = true; gd.textContent = "불러오는 중…";
+        F.deep = true; await S.loadInfo();
+        renderFilters(); renderResults();
+      });
+      const ca = $("#clearAll");
+      if (ca) ca.addEventListener("click", () => {
+        Object.assign(F, newFilters());
+        $("#globalSearch").value = "";
+        limit = 60; renderFilters(); renderResults();
+      });
       return;
     }
     const page = list.slice(0, limit);

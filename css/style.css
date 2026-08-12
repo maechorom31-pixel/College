@@ -337,6 +337,18 @@ figcaption small{font-weight:400;color:var(--muted)}
 .mini-stats>div{background:#f8faff;border:1px solid var(--line);border-radius:10px;padding:9px 16px}
 .mini-stats b{display:block;font-size:19px;color:var(--brand);font-variant-numeric:tabular-nums}
 .mini-stats span{font-size:11.5px;color:var(--muted)}
+.f-search{width:100%;height:36px;border:1px solid var(--line);border-radius:9px;
+  padding:0 11px;font-size:13.5px;background:#fff;outline:none}
+.f-search:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.empty b{display:block;font-size:16px;color:var(--ink);margin-bottom:6px}
+.empty p{margin:0 0 14px}
+.note-line{background:#fff8ec;border:1px solid #f5e2c4;border-radius:9px;padding:9px 12px;color:#8a5a12}
+.daybar{margin:14px 0 4px;background:#fff8ec;border:1px solid #f5e2c4;border-radius:12px;padding:13px 15px}
+.daybar h3{margin:0 0 9px;font-size:14px}
+.daybar h3 small{font-weight:400;color:var(--muted);font-size:11.5px}
+.daybar .chip b{color:inherit;margin-left:3px;font-variant-numeric:tabular-nums}
+.daybar .chip.clear{background:#fff;border-color:#d9b98a;color:#8a5a12;font-weight:700}
+.daybar .hint{color:#8a5a12;line-height:1.6}
 
 .verdict-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px;margin:18px 0}
 .verdict{background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px;text-align:left;
