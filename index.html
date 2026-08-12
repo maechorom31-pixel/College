@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>전문대 진학 탐색 · 2027 입시</title>
-<meta name="description" content="전국 전문대학을 지도와 조건으로 탐색하고 입결·취업률을 한눈에 비교하세요.">
+<meta name="description" content="전국 전문대학 127곳·학과 2,562개를 지도와 조건으로 탐색하고, 3개년 입결·전형별 등급·취업률·연계편입까지 한눈에 비교하세요.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🎓</text></svg>">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -12,34 +13,49 @@
   <div class="wrap header-inner">
     <a class="brand" href="#/">
       <span class="brand-mark">🎓</span>
-      <span class="brand-text">전문대 진학 탐색<small>2027 입시 자료 기반</small></span>
+      <span class="brand-text">전문대 진학 탐색<small>2027학년도 입시 자료집</small></span>
     </a>
     <div class="global-search">
       <input id="globalSearch" type="search" placeholder="대학·학과 검색 (예: 간호, 동양미래대)" autocomplete="off">
     </div>
-    <a class="nav-compare" href="#/compare">🛒 비교함<b id="navCount">0</b></a>
+    <a class="nav-compare" href="#/compare">⚖️ 비교함<b id="navCount">0</b></a>
+    <button id="navToggle" class="nav-toggle" aria-label="메뉴 열기" aria-expanded="false">☰</button>
   </div>
+  <nav class="site-nav" id="siteNav">
+    <div class="wrap nav-inner">
+      <a href="#/browse" data-nav="browse">🔎 탐색</a>
+      <a href="#/match" data-nav="match">🎯 내 등급으로 찾기</a>
+      <a href="#/calendar" data-nav="calendar">📅 전형 일정</a>
+      <a href="#/transfer" data-nav="transfer">🎓 연계편입</a>
+      <a href="#/vs" data-nav="vs">🆚 전문대 vs 일반대</a>
+      <a href="#/insight" data-nav="insight">📊 데이터 인사이트</a>
+    </div>
+  </nav>
 </header>
 
-<main class="wrap" id="view"><!-- 뷰가 렌더링되는 영역 --></main>
+<main class="wrap" id="view"><div class="loading">데이터를 불러오는 중…</div></main>
 
 <footer class="site-footer">
   <div class="wrap">
-    <p>출처: 2027학년도 전국 전문대학 입시 자료집 · 입결/취업률 등은 미발표 시 "정보 없음"으로 표시됩니다.</p>
-    <p class="muted">학습·참고용 탐색 도구이며, 최종 지원 전 반드시 각 대학 모집요강을 확인하세요.</p>
+    <p>출처: <b>2027학년도 전국 전문대학 입시 자료집</b> (한국전문대학교육협의회) · 전문대 127개 캠퍼스 · 중위권 일반대 75개교</p>
+    <p class="muted">입결·취업률 등은 대학 미발표 시 "정보 없음"으로 표시됩니다. 학습·참고용 도구이며, 최종 지원 전 반드시 각 대학 모집요강을 확인하세요.</p>
   </div>
 </footer>
 
-<!-- 장바구니(비교함) 바 -->
 <div id="cartBar" class="cart-bar hidden">
   <span class="cart-info"><b id="cartCount">0</b>개 담음</span>
   <button id="cartOpen" class="cart-btn">비교하기</button>
   <button id="cartClear" class="cart-clear" aria-label="비우기">비우기</button>
 </div>
 
+<div id="modalHost"></div>
+
 <script src="js/koreaGeo.js"></script>
 <script src="js/charts.js"></script>
 <script src="js/koreaMap.js"></script>
+<script src="js/store.js"></script>
+<script src="js/detail.js"></script>
+<script src="js/tools.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
